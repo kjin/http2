@@ -267,7 +267,7 @@ int Nghttp2Session::Init(uv_loop_t* loop,
   } else {
     nghttp2_option_new(&opts);
   }
-  nghttp2_option_set_no_auto_window_update(opts, 1);
+  nghttp2_option_set_no_auto_window_update(opts, 0);
 
   switch (type) {
     case NGHTTP2_SESSION_SERVER:
