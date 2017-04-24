@@ -12,6 +12,7 @@
 #include "uv.h"
 #include "nghttp2/nghttp2.h"
 #include <string>
+#include <stdio.h>
 
 namespace node {
 namespace http2 {
@@ -113,7 +114,9 @@ void Nghttp2Session::DrainDataChunks(nghttp2_pending_data_chunks_cb* cb) {
   unsigned int n = 0;
   size_t amount = 0;
 
+  printf("Nghttp2Session::DrainDataChunks: before while loop\n");
   while (cb->head != nullptr) {
+    printf("Nghttp2Session::DrainDataChunks: in while loop\n");
     if (chunks == nullptr) {
       auto delete_data_chunks = [](nghttp2_data_chunks_t* chunks) {
         data_chunks_free_list.push(chunks);
@@ -132,11 +135,13 @@ void Nghttp2Session::DrainDataChunks(nghttp2_pending_data_chunks_cb* cb) {
       OnDataChunks(cb->handle, chunks);
       // Notify the nghttp2_session that a given chunk of data has been
       // consumed and we are ready to receive more data for this stream
+      printf("Nghttp2Session::DrainDataChunks: consumed %d\n", amount);
       nghttp2_session_consume(session_, cb->handle->id(), amount);
       n = 0;
       amount = 0;
     }
   }
+  printf("Nghttp2Session::DrainDataChunks: after while loop\n");
   pending_data_chunks_free_list.push(cb);
 }
 
@@ -147,6 +152,7 @@ void Nghttp2Session::DrainSettings(nghttp2_pending_settings_cb* cb) {
 }
 
 void Nghttp2Session::DrainCallbacks() {
+  printf("Nghttp2Session::DrainCallbacks\n");
   while (ready_callbacks_head_ != nullptr) {
     nghttp2_pending_cb_list* item = ready_callbacks_head_;
     switch (item->type) {
@@ -267,7 +273,7 @@ int Nghttp2Session::Init(uv_loop_t* loop,
   } else {
     nghttp2_option_new(&opts);
   }
-  nghttp2_option_set_no_auto_window_update(opts, 0);
+  nghttp2_option_set_no_auto_window_update(opts, 1);
 
   switch (type) {
     case NGHTTP2_SESSION_SERVER:
@@ -292,10 +298,12 @@ int Nghttp2Session::Init(uv_loop_t* loop,
   uv_prepare_init(loop_, &prep_);
 
   uv_prepare_start(&prep_, [](uv_prepare_t* t) {
+    printf("uv_prepare_start: started\n");
     Nghttp2Session* handle = ContainerOf(&Nghttp2Session::prep_, t);
 
     handle->SendAndMakeReady();
     handle->DrainCallbacks();
+    printf("uv_prepare_start: ended\n");
   });
   return ret;
 }
@@ -321,6 +329,7 @@ bool Nghttp2Session::IsAliveSession() {
 }
 
 int Nghttp2Session::Free() {
+  printf("Nghttp2Session::Free\n");
   assert(session_ != nullptr);
   assert(pending_callbacks_head_ == nullptr);
   assert(pending_callbacks_tail_ == nullptr);
